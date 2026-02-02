@@ -1,28 +1,23 @@
+[project]
+name = "scraper-app"
+version = "1.0.0"
+description = "Reddit + Samsung US Community scraper with Tkinter GUI"
+requires-python = ">=3.9"
+dependencies = [
+  "praw>=7.7.0",
+  "psaw>=0.1.0",
+  "requests>=2.31.0",
+  "beautifulsoup4>=4.12.0",
+  "lxml>=5.0.0",
+  "pandas>=2.0.0",
+  "openpyxl>=3.1.0",
+  "tkcalendar>=1.6.1",
+  "python-dotenv>=1.0.0",
+]
+
 [build-system]
 requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
-[project]
-name = "scraper-app"
-version = "0.1.0"
-description = "US Community + Reddit scraper with GUI and Excel output"
-readme = "README.md"
-requires-python = ">=3.10"
-dependencies = [
-  "requests>=2.31",
-  "beautifulsoup4>=4.12",
-  "lxml>=5.0",
-  "pandas>=2.1",
-  "openpyxl>=3.1",
-  "praw>=7.7",
-  "psaw>=0.1.0",
-  "python-dotenv>=1.0",
-  "tkcalendar>=1.6",
-]
-
 [tool.setuptools]
-include-package-data = true
-
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["utils*", "tools*"]
+packages = ["utils", "tools"]

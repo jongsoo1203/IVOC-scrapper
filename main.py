@@ -1,15 +1,10 @@
-from __future__ import annotations
-
 import tkinter as tk
-
 from tools.gui import ScraperGUI
-from utils.logging_config import setup_logging
 
 
-def main() -> None:
-    setup_logging()
+def main():
     root = tk.Tk()
-    ScraperGUI(root)
+    app = ScraperGUI(root)
     root.mainloop()
 
 

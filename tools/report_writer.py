@@ -1,87 +1,75 @@
-from __future__ import annotations
-
-import csv
-from dataclasses import dataclass
-from pathlib import Path
-
 import pandas as pd
 from openpyxl import load_workbook
-from openpyxl.styles import Alignment, Border, PatternFill, Side
+from openpyxl.styles import PatternFill, Border, Side, Alignment
 
 
-@dataclass(frozen=True)
-class ReportWriter:
-    data_dir: Path
+def sort_csv_to_xlsx(fn: str) -> str:
+    df = pd.read_csv(fn, header=None, parse_dates=[0])
+    output = fn.replace(".csv", ".xlsx")
+    df.to_excel(output, index=False, header=False)
 
-    def write_csv(self, rows: list[list[str]], filename: str) -> Path:
-        self.data_dir.mkdir(parents=True, exist_ok=True)
-        out = self.data_dir / filename
+    color_map = {
+        "green": PatternFill(start_color="92D050", end_color="92D050", fill_type="solid"),
+        "darkblue": PatternFill(start_color="9DC3E6", end_color="9DC3E6", fill_type="solid"),
+        "orange": PatternFill(start_color="FFA500", end_color="FFA500", fill_type="solid"),
+        "lightblue": PatternFill(start_color="DDEBF7", end_color="DDEBF7", fill_type="solid"),
+        "grey": PatternFill(start_color="D3D3D3", end_color="D3D3D3", fill_type="solid"),
+        "peach": PatternFill(start_color="FBE5D6", end_color="FBE5D6", fill_type="solid"),
+        "yellow": PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid"),
+    }
 
-        with out.open("w", newline="", encoding="utf-8") as f:
-            w = csv.writer(f, lineterminator="\n", quoting=csv.QUOTE_ALL)
-            w.writerows(rows)
+    color_keywords = [
+        ("green", ["tab", "bud", "watch", "xr"]),
+        ("darkblue", ["s21"]),
+        ("orange", ["s22"]),
+        ("lightblue", ["s23"]),
+        ("grey", ["s24"]),
+        ("peach", ["s25"]),
+        ("yellow", ["flip", "fold"]),
+    ]
 
-        return out
+    color_priority = {
+        "green": 7,
+        "darkblue": 6,
+        "orange": 5,
+        "lightblue": 4,
+        "grey": 3,
+        "peach": 2,
+        "yellow": 1,
+    }
 
-    def csv_to_styled_xlsx(self, csv_path: Path) -> Path:
-        df = pd.read_csv(csv_path, header=None, parse_dates=[0])
-        out_xlsx = csv_path.with_suffix(".xlsx")
+    def get_row_color(row):
+        last_color = None
+        for color_name, keywords_list in color_keywords:
+            for keyword in keywords_list:
+                if any(keyword.lower() in str(row[col]).lower() for col in [4, 3, 2]):
+                    last_color = color_name
+        return last_color
 
-        # Save initial XLSX
-        df.to_excel(out_xlsx, index=False, header=False)
+    df["__color__"] = df.apply(get_row_color, axis=1)
+    df["__priority__"] = df["__color__"].map(color_priority).fillna(999)
+    df = df.sort_values("__priority__").reset_index(drop=True)
+    df_to_save = df.drop(columns="__priority__")
+    df_to_save.to_excel(output, index=False, header=False)
 
-        color_map = {
-            "green": PatternFill(start_color="92D050", end_color="92D050", fill_type="solid"),
-            "darkblue": PatternFill(start_color="9DC3E6", end_color="9DC3E6", fill_type="solid"),
-            "orange": PatternFill(start_color="FFA500", end_color="FFA500", fill_type="solid"),
-            "lightblue": PatternFill(start_color="DDEBF7", end_color="DDEBF7", fill_type="solid"),
-            "grey": PatternFill(start_color="D3D3D3", end_color="D3D3D3", fill_type="solid"),
-            "peach": PatternFill(start_color="FBE5D6", end_color="FBE5D6", fill_type="solid"),
-            "yellow": PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid"),
-        }
+    wb = load_workbook(output)
+    ws = wb.active
 
-        color_keywords = [
-            ("green", ["tab", "bud", "watch", "xr"]),
-            ("darkblue", ["s21"]),
-            ("orange", ["s22"]),
-            ("lightblue", ["s23"]),
-            ("grey", ["s24"]),
-            ("peach", ["s25"]),
-            ("yellow", ["flip", "fold"]),
-        ]
+    thin = Side(border_style="thin", color="000000")
+    all_border = Border(top=thin, left=thin, right=thin, bottom=thin)
+    wrap_alignment = Alignment(wrap_text=True)
 
-        priority = {"green": 7, "darkblue": 6, "orange": 5, "lightblue": 4, "grey": 3, "peach": 2, "yellow": 1}
+    for idx, row in df.iterrows():
+        color_name = row["__color__"]
+        ws.row_dimensions[idx + 1].height = 13.8
 
-        def row_color(row) -> str | None:
-            last = None
-            for color, keys in color_keywords:
-                if any(any(k in str(row[col]).lower() for k in keys) for col in [4, 3, 2]):
-                    last = color
-            return last
+        for col in range(1, ws.max_column):
+            cell = ws.cell(row=idx + 1, column=col)
+            if color_name and col == 3:
+                cell.fill = color_map[color_name]
+            cell.border = all_border
+            cell.alignment = wrap_alignment
 
-        df["__color__"] = df.apply(row_color, axis=1)
-        df["__priority__"] = df["__color__"].map(priority).fillna(999)
-        df = df.sort_values("__priority__").reset_index(drop=True)
-        df.drop(columns="__priority__").to_excel(out_xlsx, index=False, header=False)
-
-        wb = load_workbook(out_xlsx)
-        ws = wb.active
-
-        thin = Side(border_style="thin", color="000000")
-        border = Border(top=thin, left=thin, right=thin, bottom=thin)
-        wrap = Alignment(wrap_text=True)
-
-        for i, row in df.iterrows():
-            ws.row_dimensions[i + 1].height = 13.8
-            c = row["__color__"]
-            for col in range(1, ws.max_column):
-                cell = ws.cell(row=i + 1, column=col)
-                if c and col == 3:
-                    cell.fill = color_map[c]
-                cell.border = border
-                cell.alignment = wrap
-
-        # remove __color__ col
-        ws.delete_cols(ws.max_column)
-        wb.save(out_xlsx)
-        return out_xlsx
+    ws.delete_cols(ws.max_column)
+    wb.save(output)
+    return output

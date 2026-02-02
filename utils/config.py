@@ -1,10 +1,6 @@
-from __future__ import annotations
-
 import os
 from dataclasses import dataclass
-from pathlib import Path
-
-from utils.paths import data_dir
+from dotenv import load_dotenv
 
 
 @dataclass(frozen=True)
@@ -12,50 +8,72 @@ class RedditConfig:
     client_id: str
     client_secret: str
     user_agent: str
-    timeout_sec: int = 15
 
 
 @dataclass(frozen=True)
-class EmailConfig:
-    smtp_host: str = "smtp.gmail.com"
-    smtp_port: int = 587
-    user: str = ""
-    password: str = ""
+class SmtpConfig:
+    host: str
+    port: int
+    user: str
+    password: str
+    to: str
 
 
-@dataclass(frozen=True)
-class AppConfig:
-    data_dir: Path
-    reddit: RedditConfig
-    email: EmailConfig
-
-    max_pages_uscommunity: int = 10
-    reddit_recent_days_cutoff: int = 3
-
-    reddit_max_workers: int = 10
-    uscommunity_max_workers: int = 15
+def load_env() -> None:
+    # loads .env if present
+    load_dotenv()
 
 
-BANNED_FLAIRS: set[str] = {
-    "camera", "tip", "photography", "review", "news", "psa", "spoiler",
-    "update", "advice needed", "general", "impression", "wallpaper",
-    "samsung official", "scheduled megathread", "rumor", "pro tip",
-    "samsung tv", "tips & tricks", "cases", "screen protectors",
-    "purchase", "availability", "general discussion", "meme", "leak",
-    "deal", "watch band", "iphone",
-}
+def get_reddit_config() -> RedditConfig:
+    load_env()
+    client_id = os.getenv("REDDIT_CLIENT_ID", "").strip()
+    client_secret = os.getenv("REDDIT_CLIENT_SECRET", "").strip()
+    user_agent = os.getenv("REDDIT_USER_AGENT", "RedditScraper/3.0 by u/YourUser").strip()
 
-REDDIT_SUBS: list[str] = [
+    if not client_id or not client_secret:
+        raise RuntimeError(
+            "Missing Reddit credentials. Create a .env file (copy from .env.example) and set:\n"
+            "REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET, REDDIT_USER_AGENT"
+        )
+
+    return RedditConfig(client_id=client_id, client_secret=client_secret, user_agent=user_agent)
+
+
+def get_smtp_config() -> SmtpConfig:
+    load_env()
+    host = os.getenv("SMTP_HOST", "smtp.gmail.com").strip()
+    port_str = os.getenv("SMTP_PORT", "587").strip()
+    user = os.getenv("SMTP_USER", "").strip()
+    password = os.getenv("SMTP_PASS", "").strip()
+    to = os.getenv("SMTP_TO", user).strip()
+
+    if not user or not password:
+        raise RuntimeError(
+            "Missing SMTP credentials. Create a .env file (copy from .env.example) and set:\n"
+            "SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS (and optionally SMTP_TO)"
+        )
+
+    try:
+        port = int(port_str)
+    except ValueError:
+        port = 587
+
+    return SmtpConfig(host=host, port=port, user=user, password=password, to=to)
+
+
+# keep the same lists as your original file
+REDDIT_LINKS = [
     "GalaxyBook", "samsunggalaxy", "GalaxyFold", "galaxyzflip", "samsung", "galaxybuds",
     "GalaxyWatch", "galaxywatch4", "GalaxyS21", "GalaxyS21FE", "S22Ultra", "S22", "GalaxyS22",
-    "GalaxyTab", "zfold4", "oneui", "GalaxyS23", "GalaxyS23Ultra", "S23Ultra", "S23", "Android",
-    "Tmobile", "ATT", "Verizon", "GalaxyA54", "Official_S23FE", "GalaxyS24Ultra", "GalaxyS24",
-    "Galaxyring", "S24FE", "S24Ultra", "GalaxyS25", "GalaxyS25Plus", "GalaxyS25Ultra", "S25Ultra",
-    "S25Edge", "GalaxyA36", "GalaxyA56", "GalaxyA16", "GalaxyWatch8", "Galaxyflip7", "Galaxy_XR",
-    "GalaxyXR", "AndroidXR", "virtualreality", "ZFlip7", "S25FE", "SamsungHelp", "Samsung_GoodLock",
+    "GalaxyTab", "zfold4", "oneui", "GalaxyS23", "GalaxyS23Ultra", "S23Ultra", "S23",
+    "Android", "Tmobile", "ATT", "Verizon", "GalaxyA54", "Official_S23FE", "GalaxyS24Ultra",
+    "GalaxyS24", "Galaxyring", "S24FE", "S24Ultra", "GalaxyS25", "GalaxyS25Plus",
+    "GalaxyS25Ultra", "S25Ultra", "S25Edge", "GalaxyA36", "GalaxyA56", "GalaxyA16",
+    "GalaxyWatch8", "Galaxyflip7", "Galaxy_XR", "GalaxyXR", "AndroidXR", "virtualreality",
+    "ZFlip7", "S25FE", "SamsungHelp", "Samsung_GoodLock"
 ]
 
-US_LINKS: list[str] = [
+US_LINKS = [
     "https://us.community.samsung.com/t5/Computers/bd-p/get-help-computers-and-printers",
     "https://us.community.samsung.com/t5/Galaxy-S21/bd-p/GalaxyS21",
     "https://us.community.samsung.com/t5/Note20/bd-p/get-help-galaxy-note20",
@@ -77,19 +95,3 @@ US_LINKS: list[str] = [
     "https://us.community.samsung.com/t5/Galaxy-S25/bd-p/GalaxyS25",
     "https://us.community.samsung.com/t5/Galaxy-XR/bd-p/GalaxyXR",
 ]
-
-
-def load_config() -> AppConfig:
-    reddit = RedditConfig(
-        client_id=os.environ.get("REDDIT_CLIENT_ID", ""),
-        client_secret=os.environ.get("REDDIT_CLIENT_SECRET", ""),
-        user_agent=os.environ.get("REDDIT_USER_AGENT", "RedditScraper/3.0"),
-        timeout_sec=int(os.environ.get("REDDIT_TIMEOUT_SEC", "15")),
-    )
-    email = EmailConfig(
-        smtp_host=os.environ.get("SMTP_HOST", "smtp.gmail.com"),
-        smtp_port=int(os.environ.get("SMTP_PORT", "587")),
-        user=os.environ.get("SMTP_USER", ""),
-        password=os.environ.get("SMTP_PASS", ""),
-    )
-    return AppConfig(data_dir=data_dir(), reddit=reddit, email=email)

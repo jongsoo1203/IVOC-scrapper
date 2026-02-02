@@ -1,42 +1,31 @@
-from __future__ import annotations
-
 import smtplib
-from dataclasses import dataclass
-from email import encoders
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from pathlib import Path
+from email import encoders
 
 
-@dataclass(frozen=True)
-class Emailer:
-    smtp_host: str
-    smtp_port: int
-    user: str
-    password: str
-
-    def send_with_attachment(
-        self,
-        recipient: str,
-        subject: str,
-        body: str,
-        attachment_path: Path,
-    ) -> None:
+def send_email(smtp_config, subject: str, body: str, file_path: str) -> None:
+    try:
         msg = MIMEMultipart()
-        msg["From"] = self.user
-        msg["To"] = recipient
+        msg["From"] = smtp_config.user
+        msg["To"] = smtp_config.to
         msg["Subject"] = subject
-        msg.attach(MIMEText(body, "plain"))
 
-        with attachment_path.open("rb") as f:
+        msg.attach(MIMEText(body or "", "plain"))
+
+        with open(file_path, "rb") as file:
             part = MIMEBase("application", "octet-stream")
-            part.set_payload(f.read())
+            part.set_payload(file.read())
             encoders.encode_base64(part)
-            part.add_header("Content-Disposition", f'attachment; filename="{attachment_path.name}"')
+            filename = file_path.split("/")[-1].split("\\")[-1]
+            part.add_header("Content-Disposition", f"attachment; filename={filename}")
             msg.attach(part)
 
-        with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
+        with smtplib.SMTP(smtp_config.host, smtp_config.port) as server:
             server.starttls()
-            server.login(self.user, self.password)
+            server.login(smtp_config.user, smtp_config.password)
             server.send_message(msg)
+
+    except Exception as e:
+        print(f"Failed to send email: {e}")
