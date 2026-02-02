@@ -1,10 +1,13 @@
 import pandas as pd
 from openpyxl import load_workbook
 from openpyxl.styles import PatternFill, Border, Side, Alignment
+from tools.dedupe import remove_duplicates_df
 
 
 def sort_csv_to_xlsx(fn: str) -> str:
     df = pd.read_csv(fn, header=None, parse_dates=[0])
+
+    df = remove_duplicates_df(df)
     output = fn.replace(".csv", ".xlsx")
     df.to_excel(output, index=False, header=False)
 
